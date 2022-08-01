@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script type="text/javascript">
+
+        // Always use strict mode prevents bad practices
+        'use strict';
+
+        function myCreateFunction() {
+            var table = document.getElementById("myTable");
+            var row = table.insertRow(0);
+            var cell1 = row.insertCell(0);
+            var cell2 = row.insertCell(1);
+            cell1.innerHTML = "NEW CELL1";
+            cell2.innerHTML = "NEW CELL2";
+        }
+
+        function myDeleteFunction() {
+            document.getElementById("myTable").deleteRow(0);
+        }
+
+        function loadTable(tableId, fields, data) {
+            var rows = '';
+            $.each(data, function (index, item) {
+                var row = '<tr>';
+                $.each(fields, function (indec, field) {
+                    row += '<td>' + item[field + ''] + '</td>';
+                });
+                rows += row + '<tr>';
+            });
+            $('#' + tableId).html(rows);
+
+        }
+    </script>
+
+    <script type="text/javascript">
+        var socket;
+
+        function init() {
+            var host = "ws://"+window.location.host+"/ws"; // SET THIS TO YOUR SERVER
+
+
+            try {
+                socket = new WebSocket(host);
+                log('WebSocket - status ' + socket.readyState);
+                socket.onopen = function (msg) {
+                    log("Receiving data...");
+                };
+
+                socket.onmessage = function (msg) {
+
+                    //log(msg.data);
+
+                    var JSONObject = JSON.parse(msg.data);
+                    var table = document.getElementById("myTable");
+
+                    switch (JSONObject["event"]) {
+                        case "csv_RADIUSStart":
+                            var row = table.insertRow(1);
+                            row.id = JSONObject["param4"];
+                            var cell0 = row.insertCell(0);
+                            var cell1 = row.insertCell(1);
+                            var cell2 = row.insertCell(2);
+                            cell0.innerHTML = JSONObject["param1"];
+                            cell1.innerHTML = JSONObject["param2"];
+                            cell2.innerHTML = JSONObject["data"] ;
+
+                            break;
+
+                        case "csv_RADIUSInterim-Update":
+                            var row = document.getElementById(JSONObject["param4"]);
+                            if row = null {
+                                var row = table.insertRow(1);
+                                row.id = JSONObject["param4"];
+                                var cell0 = row.insertCell(0);
+                                var cell1 = row.insertCell(1);
+                                var cell2 = row.insertCell(2);
+                                cell0.innerHTML = JSONObject["param1"];
+                                cell1.innerHTML = JSONObject["param2"];
+                                cell2.innerHTML = JSONObject["data"] ;
+                            }
+                            break;
+
+                        case "ChannelState":
+                           // var row = document.getElementById(JSONObject["Uniqueid"]);
+                            //            var cell1 = row.insertCell(0);
+                            //            var cell2 = row.Cell(1);
+                            //            var cell3 = row.insertCell(2);
+                            //            cell1.innerHTML = JSONObject["Channel"];
+                           // row.cells[1].innerHTML = JSONObject["ChannelStateDesc"];
+                            //            cell3.innerHTML = JSONObject["Uniqueid"];
+                            break;
+
+                        case "csv_RADIUSStop":
+                                var row = document.getElementById(JSONObject["param4"]);
+                                if (row != null) {row.parentNode.removeChild(row);}
+                            break;
+                    }
+
+                };
+
+                socket.onclose = function (msg) {
+                    log("Disconnected - status " + this.readyState);
+                    // setInterval(reconnect,10000);
+                };
+            }
+            catch (ex) { log(ex); }
+        }
+
+        function quit() {
+            if (socket != null) {
+                log("Goodbye!");
+                socket.close();
+                socket = null;
+            }
+        }
+
+        function reconnect() {
+            quit();
+            init();
+        }
+
+        function listen() {
+            var msg = {
+                event: "Listen",
+                data: document.getElementById('listen_event').value
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+        function stop_listen() {
+            var msg = {
+                event: "StopListen",
+                data: document.getElementById('listen_event').value
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+        function refresh() {
+            var msg = {
+                event: "Refresh",
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+        function pong() {
+            var msg = {
+                event: "Pong",
+            };
+            socket.send(JSON.stringify(msg));
+        }
+
+
+        // Utilities
+        function $(id) { return document.getElementById(id); }
+        function log(msg) { $("log").innerHTML += "<br>" + msg; }
+//function onkey(event){ if(event.keyCode==13){ send(); } }
+    </script>
+
+    <title>WebSockets Client</title>
+</head>
+
+<body onload="init()">
+
+    <input type="text" id="listen_event">
+    <button onclick="listen()">Listen Now</button>
+    <button onclick="stop_listen()">Stop Now</button>
+
+    <table id="myTable" border="1">
+        <tr>
+            <th>From IP</th>
+            <th>To IP</th>
+            <th>Sip</th>
+        </tr>
+    </table>
+    <br>
+
+
+    <div id="log"></div>
+</body>
+
+</html>
